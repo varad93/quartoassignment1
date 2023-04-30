@@ -1,0 +1,112 @@
+---
+title: "Analysis of Child Deprivation Worldwide"
+output: html_document
+author: 
+date: "2023-04-30"
+---
+# Analysis of Child Deprivation Worldwide
+Child deprivation is a global issue that affects millions of children around the world. It refers to the denial of access to basic needs such as food, water, shelter, education, and healthcare, among others. According to UNICEF, children living in poverty are more likely to experience deprivation than those from wealthier households. In this report, we will use data from UNICEF to explore the state of child deprivation worldwide.
+
+## Loading Data
+
+```{r}
+# Load required packages
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+library(scales)
+library(ggthemes)
+library(maptools)
+library(dplyr)
+library(maps)
+library(rnaturalearth)
+library(rworldmap)
+library(countrycode)
+```
+
+```{r}
+# Read in data
+data <- read.csv("C:/Users/Administrator/OneDrive/Desktop/python_learning/mongo/R_assignments/unicef_indicator.csv", header = TRUE , stringsAsFactors = FALSE)
+head(data)
+```
+
+## World Map
+
+```{r}
+# Convert alpha_2_code to ISO3 country codes
+data$ISO3 <- countrycode(sourcevar = data$alpha_2_code, origin = "iso2c", destination = "iso3c")
+
+# Summarize data by country
+deprivation <- data %>%
+  group_by(ISO3) %>%
+  summarise(avg_deprivation = mean(obs_value, na.rm = TRUE))
+
+# Join deprivation data to world map data
+world_map <- ne_countries(scale = "medium", returnclass = "sf") %>%
+  select(iso_a3, geometry) %>%
+  left_join(deprivation, by = c("iso_a3" = "ISO3"))
+
+# Create map plot
+ggplot(world_map) +
+  geom_sf(aes(fill = avg_deprivation)) +
+  scale_fill_distiller(palette ="RdBu", na.value = "grey90", direction = -1) + # or direction=1 +
+  theme_void() + 
+  labs(title = "Average Child Deprivation per Country", 
+       subtitle = "Data from UNICEF",
+       fill = "Average Deprivation")
+```
+
+## Bar Chart
+
+```{r}
+bar_data <- data %>%
+  group_by(region) %>%
+  summarise(avg_deprivation = mean(obs_value)) %>%
+  arrange(desc(avg_deprivation)) %>%
+  head(10)
+
+bar_plot <- ggplot(bar_data, aes(x = reorder(region, avg_deprivation), y = avg_deprivation)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  coord_flip() +
+  labs(title = "Top 10 Countries with the Highest Average Number of Deprivations",
+       x = "Country", y = "Average Number of Deprivations") +
+  theme_bw()
+
+bar_plot
+```
+
+## Scatter Plot
+
+```{r}
+scatter_data <- data %>%
+  group_by(time_period) %>%
+  summarise(avg_deprivation = mean(obs_value))
+
+scatter_plot <- ggplot(scatter_data, aes(x = time_period, y = avg_deprivation)) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Average Number of Deprivations vs Time Period",
+       x = "Time Period", y = "Average Number of Deprivations") +
+  theme_bw()
+
+scatter_plot
+```
+
+## Time Series Chart
+
+```{r}
+data %>%
+  group_by(time_period) %>%
+  summarise(avg_deprivations = mean(obs_value)) %>%
+  ggplot(aes(x = time_period, y = avg_deprivations)) +
+  geom_line(size = 1) +
+  scale_color_viridis_d() +
+  labs(title = "Child Deprivation Across Time_period",
+       x = "Year",
+       y = "Average Number of Deprivations",
+       color = "Region") +
+  theme_minimal()
+```
+
+
+
